@@ -114,20 +114,46 @@ do
 		value = "Dynamic",
 		any = "Dynamic",
 		Variant = "Dynamic",
+		cdata = "Dynamic",
 
 		-- FIXME
 		["ShaderVariableType"] = "String",
-		["KeyConstant"] = "String",
-		["Scancode"] = "String",
 	}
 	
 	function typeMap(t)
-		return map[t] or t
+		-- FIXME: union types
+		if string.find(t, " or ") then
+			return "Dynamic"
+		else
+			return map[t] or t
+		end
 	end
 end
 
 function capitalize(s)
 	return s:sub(1, 1):upper() .. s:sub(2)
+end
+
+do
+	-- if an identifier begins with a digit,
+	-- prepend an underscore
+	local numbers = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "0"}
+	function correctIdentifier(s)
+		local firstCh = string.sub(s, 1, 1)
+
+		for _, v in ipairs(numbers) do
+			if v == firstCh then
+				return "_" .. s
+			end
+		end
+
+		return s
+	end
+end
+
+-- fix backslashes and doublequotes
+function escapeString(s)
+	return s:gsub("\\", "\\\\"):gsub("\"", "\\\"")
 end
 
 function mergeTables(target, src, prefix)
@@ -235,13 +261,19 @@ function emitMethod(typeName, m, types, multirets)
 end
 
 function emitEnum(e, packageName)
+	local overrideFile = io.open(("overrides/%s.%s.hx"):format(packageName, e.name), "r")
+	if overrideFile then
+		local contents = overrideFile:read("*a")
+		overrideFile:close()
+		return {[e.name .. ".hx"] = contents}
+	end
+
 	local out = {}
 	table.insert(out, ("package %s;"):format(packageName))
-	table.insert(out, "@:enum")
-	table.insert(out, ("abstract %s (String)\n{"):format(e.name))
+	table.insert(out, ("enum abstract %s (String)\n{"):format(e.name))
 
 	for i, v in ipairs(e.constants) do
-		table.insert(out, ("\tvar %s = \"%s\";"):format(capitalize(v.name), v.name))
+		table.insert(out, ("\tvar %s = \"%s\";"):format(correctIdentifier(capitalize(v.name)), escapeString(v.name)))
 	end
 
 	table.insert(out, "}")
@@ -257,6 +289,13 @@ function emitHeader(out, packageName)
 end
 
 function emitType(t, packageName)
+	local overrideFile = io.open(("overrides/%s.%s.hx"):format(packageName, t.name), "r")
+	if overrideFile then
+		local contents = overrideFile:read("*a")
+		overrideFile:close()
+		return {[t.name .. ".hx"] = contents}
+	end
+
 	local out = {}
 	local types = {}
 	local multirets = {}
@@ -327,8 +366,14 @@ end
 
 mergeTables(files, emitModule(api, "love"))
 
+local dirSep = package.config:sub(1, 1)
 for i, v in pairs(files) do
-	os.execute("mkdir -p " .. dirname(i))
+	if dirSep == "/" then -- unix
+		os.execute("mkdir -p " .. dirname(i))
+	else -- windows
+		os.execute("mkdir " .. dirname(i):gsub("/", dirSep))
+	end
+
 	local f = io.open(i, "w")
 	f:write(v)
 	f:close()
