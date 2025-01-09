@@ -256,8 +256,12 @@ function emitOverload(typeName, name, o, types, multirets)
 		if v.name == "..." then
 			table.insert(args, ("args:Rest<%s>"):format(v.type))
 		else
-			local arg = (v.default and "?" or "") .. v.name .. ":" .. v.type
-			table.insert(args, arg)
+			-- split variable name per comma and submit each value
+			local components = {}
+			for argName in string.gmatch(v.name, "([^, ]+)") do
+				local arg = (v.default and "?" or "") .. argName .. ":" .. v.type
+				table.insert(args, arg)
+			end
 		end
 	end
 	local retType = "Void"
