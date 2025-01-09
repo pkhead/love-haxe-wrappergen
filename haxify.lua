@@ -130,8 +130,72 @@ do
 	end
 end
 
+function funcArguments(arguments, types, isFuncType)
+	if arguments == nil or arguments[1] == nil then
+		if isFuncType then
+			return "(Void)"
+		end
+
+		return "()"
+	end
+
+	local concat = {}
+
+	table.insert(concat, "(")
+	for i, arg in ipairs(arguments) do
+		if i > 1 then
+			table.insert(concat, ",")
+		end
+
+		if isFuncType then
+			table.insert(concat, arg.name)
+			table.insert(concat, ":")
+		end
+
+		table.insert(concat, haxeType(arg, types))
+	end
+	table.insert(concat, ")")
+
+	return table.concat(concat)
+end
+
+function haxeType(typeTable, types)
+	if typeTable.type == "function" then
+		local concat = {funcArguments(typeTable.arguments, types, true)}
+
+		table.insert(concat, "->")
+
+		-- TODO: multiple returns?
+		if typeTable.returns ~= nil then
+			table.insert(concat, haxeType(typeTable.returns[1], types))
+		else
+			table.insert(concat, "Void")
+		end
+
+		return table.concat(concat)
+	else
+		local t = typeMap(typeTable.type)
+		
+		if types then
+			types[t] = true
+		end
+
+		return t
+	end
+end
+
 function capitalize(s)
 	return s:sub(1, 1):upper() .. s:sub(2)
+end
+
+function isValueInTable(t, q)
+	for _, v in pairs(t) do
+		if v == q then
+			return true
+		end
+	end
+
+	return false
 end
 
 do
@@ -174,9 +238,7 @@ function emitMultiReturnType(name, returns, types)
 	for i, v in ipairs(returns) do
 		-- TODO: Maybe never? Vararg return can't really be modeled.
 		if v.name ~= "..." then
-			local type = typeMap(v.type)
-			types[type] = true
-
+			local type = haxeType(v, types)
 			table.insert(parts, ("\tvar %s : %s;\n"):format(v.name, type))
 		end
 	end
@@ -188,9 +250,7 @@ end
 function emitOverload(typeName, name, o, types, multirets)
 	local args = {}
 	for i, v in ipairs(o.arguments or {}) do
-		v.type = typeMap(v.type)
-		types[v.type] = true
-
+		v.type = haxeType(v, types)
 		v.name = v.name:match("^\"(.*)\"$") or v.name -- FIXME: workaround for love.event.quit
 
 		if v.name == "..." then
@@ -206,37 +266,40 @@ function emitOverload(typeName, name, o, types, multirets)
 		retType = typeName .. capitalize(name) .. "Result"
 		multirets[name] = emitMultiReturnType(retType, o.returns, types)
 	elseif o.returns then
-		retType = typeMap(o.returns[1].type)
-		types[retType] = true
+		retType = haxeType(o.returns[1], types)
 	end
 	return ("(%s) : %s"):format(table.concat(args, ", "), retType)
 end
 
-function emitCallback(c, types)
-	local type = {}
-	for i, v in ipairs(c.variants[1].arguments or {}) do -- TODO: Multiple variants? Does that even exist?
-		table.insert(type, typeMap(v.type))
-		types[type[#type]] = true
-	end
+function callbackSignature(c, types)
+	local type = {funcArguments(c.arguments, types, false)}
+	table.insert(type, "->")
 
-	if c.variants[1].returns then -- TODO: Multiple returns?
-		table.insert(type, typeMap(c.variants[1].returns[1].type))
-		types[type[#type]] = true
+	if c.returns then -- TODO: Multiple returns?
+		if c.returns[1].type == "function" then
+			table.insert(type, "(")
+			table.insert(type, haxeType(c.returns[1], types))	
+			table.insert(type, ")")
+		else
+			table.insert(type, haxeType(c.returns[1], types))
+		end
 	else
 		table.insert(type, "Void")
 	end
 
-	-- If there are no arguments, prepend Void
-	if #type == 1 then
-		table.insert(type, 1, "Void")
-	end
+	return table.concat(type)
+end
 
-	type = table.concat(type, "->")
-
-	return ("\tpublic static var %s : %s;"):format(c.name, type)
+function emitCallback(c, types)
+	-- TODO: Multiple variants? Does that even exist?
+	return ("\tpublic static var %s : %s;"):format(c.name, callbackSignature(c.variants[1], types))
 end
 
 function rawEmitFunction(typeName, f, types, static, multirets)
+	if private == nil then
+		private = false
+	end
+
 	local out = {""}
 
 	local sigs = {}
@@ -248,7 +311,27 @@ function rawEmitFunction(typeName, f, types, static, multirets)
 	for i, v in ipairs(sigs) do
 		table.insert(out, ("\t@:overload(function %s {})"):format(v))
 	end
+
 	table.insert(out, ("\tpublic%s function %s%s;"):format(static and " static" or "", f.name, main))
+	return table.concat(out, "\n")
+end
+
+function emitCallbackFunctionHeader(typeName, f, types, static, multirets)
+	if private == nil then
+		private = false
+	end
+
+	local out = {""}
+
+	local sigs = {}
+	table.insert(sigs, emitOverload(typeName, f.name, f.variants[1], types, multirets))
+
+	local main = table.remove(sigs, 1)
+	for i, v in ipairs(sigs) do
+		table.insert(out, ("\t@:overload(function %s {})"):format(v))
+	end
+
+	table.insert(out, ("\tprivate%s function %s%s"):format(static and " static" or "", f.name, main))
 	return table.concat(out, "\n")
 end
 
@@ -325,9 +408,9 @@ function emitModule(m, luaName)
 
 	local moduleName = luaName or "love." .. m.name
 	local prefix = moduleName:gsub("%.", "/") .. "/"
-	emitHeader(out, moduleName)
+	emitHeader(out, "love")
 	table.insert(out, ("@:native(\"%s\")"):format(moduleName))
-	local className = capitalize(luaName or (m.name .. "Module"))
+	local className = capitalize(luaName or m.name)
 	table.insert(out, ("extern class %s"):format(className))
 	table.insert(out, "{")
 
@@ -350,11 +433,113 @@ function emitModule(m, luaName)
 	end
 
 	table.insert(out, 2, resolveImports(types, moduleName))
+	table.insert(out, 2, ("import %s.*;"):format(moduleName))
 
 	for i, v in pairs(multirets) do
 		table.insert(out, v)
 	end
-	files[prefix .. className .. ".hx"] = table.concat(out, "\n")
+	files["love/" .. className .. ".hx"] = table.concat(out, "\n")
+	return files
+end
+
+function getCallbackData(cbName)
+	local cbData = nil
+	for _, v in pairs(api.callbacks) do
+		if v.name == cbName then
+			cbData = v
+			break
+		end
+	end
+	return cbData
+end
+
+function emitAppClass()
+	local out = {}
+	local files = {}
+	local types = {}
+	local multirets = {}
+	local cbNames = {}
+
+	local moduleName = "love.Application"
+	emitHeader(out, "love")
+
+	local callbacksWithDefaults = {"run", "errorhandler", "quit"}
+
+	table.insert(out, "class Application {")
+	table.insert(out, "\tstatic var instance:Application = null;")
+
+	for _, cbName in pairs(callbacksWithDefaults) do
+		local cbType = callbackSignature(getCallbackData(cbName).variants[1], types)
+		table.insert(out, ("\tvar default_%s:%s = Love.%s;"):format(cbName, cbType, cbName))
+	end
+
+	for _, cb in pairs(api.callbacks) do
+		if cb.name ~= "conf" and cb.name ~= "load" then
+			table.insert(cbNames, cb.name)
+
+			if not isValueInTable(callbacksWithDefaults, cb.name) then
+				table.insert(out, emitCallbackFunctionHeader("Application", cb, types, false, multirets))
+				table.insert(out, "\t{}")
+			end
+		end
+	end
+
+	table.insert(out, "\tprivate function load(args:Array<String>) {}");
+	
+	for _, cbName in pairs(callbacksWithDefaults) do
+		--local cbType = callbackSignature(api.callbacks[cbName], types)
+		local cbData = getCallbackData(cbName)
+		print(cbName)
+		local argConcat = {}
+
+		if cbData.variants[1].arguments then
+			for i, arg in ipairs(cbData.variants[1].arguments) do
+				if i > 1 then
+					table.insert(argConcat, ", ")
+				end
+				table.insert(argConcat, arg.name)
+			end
+		end
+
+		table.insert(out, emitCallbackFunctionHeader("Application", cbData, types, false, multirets))
+		table.insert(out, ("\t{ return default_%s(%s); }"):format(cbName, table.concat(argConcat)))
+	end
+
+	table.insert(out, [[
+	
+	public function new() {
+		if (instance != null) throw new haxe.Exception("Cannot create more than one instance of love.Application.");
+		instance = this;
+		
+		Love.load = (argsTable:lua.Table<Dynamic, Dynamic>, unfilteredArgs:lua.Table<Dynamic, Dynamic>) -> {
+			var args:Array<String> = [];
+			var i = 1;
+			while (argsTable[i] != null) {
+				args.push(argsTable[i]);
+				i++;
+			}
+			
+			load(args);
+		}
+]])
+
+	for _, cbName in pairs(callbacksWithDefaults) do
+		table.insert(out, ("\t\tLove.%s = %s;"):format(cbName, cbName))
+	end
+	
+	for _, name in pairs(cbNames) do
+		table.insert(out, ("\t\tLove.%s = %s;"):format(name, name))
+	end
+
+	table.insert(out, "\t}\n}")
+	
+	table.insert(out, 2, resolveImports(types, moduleName))
+
+	for i, v in pairs(multirets) do
+		table.insert(out, v)
+	end
+
+	files["love/Application.hx"] = table.concat(out, "\n")
 	return files
 end
 
@@ -365,6 +550,7 @@ for i, v in ipairs(api.modules) do
 end
 
 mergeTables(files, emitModule(api, "love"))
+mergeTables(files, emitAppClass())
 
 local dirSep = package.config:sub(1, 1)
 for i, v in pairs(files) do
