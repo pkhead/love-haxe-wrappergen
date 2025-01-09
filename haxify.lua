@@ -463,7 +463,7 @@ function emitAppClass()
 	emitHeader(out, "love")
 
 	table.insert(out, "@:autoBuild(love.ApplicationMacros.assignCallbacks())")
-	table.insert(out, "class Application {")
+	table.insert(out, "abstract class Application {")
 	table.insert(out, "\tstatic var instance:Application = null;")
 
 	local function emitCbHeader(cb)
@@ -492,6 +492,10 @@ function emitAppClass()
 	-- handle load specially, because i want to convert it from a lua table to a haxe array.
 	table.insert(out, "\tprivate function load(args:Array<String>, unfilteredArgs:Array<String>) {}")
 
+	-- this is the function that will set the necessary love2d callbacks, filled
+	-- by the build macro.
+	table.insert(out, "\t@:noCompletion abstract function _setCallbacks():Void;")
+
 	-- creation of constructor/initialization
 	table.insert(out, [[
 	
@@ -502,8 +506,8 @@ function emitAppClass()
 		Love.load = (argsTable:lua.Table<Dynamic, Dynamic>, unfilteredArgs:lua.Table<Dynamic, Dynamic>) -> {
 			load(lua.Table.toArray(cast argsTable), lua.Table.toArray(cast unfilteredArgs));
 		}
-
-		// macro will fill out callback assignments here
+		
+		_setCallbacks();
 	}
 ]])
 
@@ -556,39 +560,49 @@ class ApplicationMacros {
 
         // collect list of callbacks used by the application
         var baseFields = baseClass.fields.get();
-        var neededCallbacks:Array<String> = [];
+        var neededCallbacks:Array<{
+            name:String,
+            pos:Position
+        }> = [];
 
         for (bfield in buildFields) {
             for (field in baseFields) {
                 if (field.name == bfield.name && field.meta.has(":lovecallback")) {
-                    neededCallbacks.push(field.name);
+                    neededCallbacks.push({
+                        name: field.name,
+                        pos: bfield.pos
+                    });
                 }
             }
         }
 
         // use this list to set love callbacks as needed in
         // the constructor
-        for (bfield in buildFields) {
-            if (bfield.name == "new") {
-                switch (bfield.kind) {
-                    case FFun(f):
-                        switch (f.expr.expr) {
-                            case EBlock(exprs):
-                                for (cb in neededCallbacks) {
-                                    exprs.push({
-                                        expr: EBinop(Binop.OpAssign, macro $p{["love", "Love", cb]}, macro $p{[cb]}),
-                                        pos: Context.currentPos()
-                                    });
-                                }
-
-                            default:
-                                Context.fatalError("function love.Application.new was not a block expression?", Context.currentPos());
+        var callbackFunc = macro function _setCallbacks() {}
+        switch (callbackFunc.expr) {
+            case EFunction(kind, f):
+                switch (f.expr.expr) {
+                    case EBlock(exprs):
+                        for (cb in neededCallbacks) {
+                            exprs.push({
+                                expr: EBinop(Binop.OpAssign, macro $p{["love", "Love", cb.name]}, macro $p{[cb.name]}),
+                                pos: cb.pos
+                            });
                         }
-                    
+
                     default:
-                        Context.fatalError("field love.Application.new was not a function?", Context.currentPos());
+                        Context.fatalError("function _setCallbacks was not a block expression?", Context.currentPos());
                 }
-            }
+
+                buildFields.push({
+                    name: "_setCallbacks",
+                    access: [APrivate],
+                    kind: FieldType.FFun(f),
+                    pos: Context.currentPos()
+                });
+            
+            default:
+                Context.fatalError("field _setCallbacks was not a function?", Context.currentPos());
         }
 
         return buildFields;
