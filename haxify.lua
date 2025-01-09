@@ -133,7 +133,7 @@ end
 function funcArguments(arguments, types, isFuncType)
 	if arguments == nil or arguments[1] == nil then
 		if isFuncType then
-			return "(Void)"
+			return "Void"
 		end
 
 		return "()"
@@ -458,53 +458,41 @@ function emitAppClass()
 	local files = {}
 	local types = {}
 	local multirets = {}
-	local cbNames = {}
 
 	local moduleName = "love.Application"
 	emitHeader(out, "love")
 
-	local callbacksWithDefaults = {"run", "errorhandler", "quit"}
-
+	table.insert(out, "@:autoBuild(love.ApplicationMacros.assignCallbacks())")
 	table.insert(out, "class Application {")
 	table.insert(out, "\tstatic var instance:Application = null;")
 
-	for _, cbName in pairs(callbacksWithDefaults) do
-		local cbType = callbackSignature(getCallbackData(cbName).variants[1], types)
-		table.insert(out, ("\tvar default_%s:%s = Love.%s;"):format(cbName, cbType, cbName))
+	local function emitCbHeader(cb)
+		table.insert(out, "\t@:lovecallback")
+		table.insert(out, emitCallbackFunctionHeader("Application", cb, types, false, multirets))
 	end
 
+	-- emit overridable functions per each callback.
+	-- will include a default empty implementation.
 	for _, cb in pairs(api.callbacks) do
-		if cb.name ~= "conf" and cb.name ~= "load" then
-			table.insert(cbNames, cb.name)
-
-			if not isValueInTable(callbacksWithDefaults, cb.name) then
-				table.insert(out, emitCallbackFunctionHeader("Application", cb, types, false, multirets))
-				table.insert(out, "\t{}")
-			end
+		if cb.name ~= "conf" and cb.name ~= "load" and cb.name ~= "errorhandler" and cb.name ~= "run" and cb.name ~= "quit" then
+			emitCbHeader(cb)
+			table.insert(out, "\t{}")
 		end
 	end
 
-	table.insert(out, "\tprivate function load(args:Array<String>) {}");
-	
-	for _, cbName in pairs(callbacksWithDefaults) do
-		--local cbType = callbackSignature(api.callbacks[cbName], types)
-		local cbData = getCallbackData(cbName)
-		print(cbName)
-		local argConcat = {}
+	-- quit callback requires a return value, so provide one.
+	emitCbHeader(getCallbackData("quit"))
+	table.insert(out, "\t{ return false; }")
 
-		if cbData.variants[1].arguments then
-			for i, arg in ipairs(cbData.variants[1].arguments) do
-				if i > 1 then
-					table.insert(argConcat, ", ")
-				end
-				table.insert(argConcat, arg.name)
-			end
-		end
+	-- errorhandler may return null, so manually write an implementation
+	table.insert(out, "\t@:lovecallback")
+	table.insert(out, "\tprivate function errorhandler(msg:Dynamic):Null<Void->Void>")
+	table.insert(out, "\t{ return null; }")
 
-		table.insert(out, emitCallbackFunctionHeader("Application", cbData, types, false, multirets))
-		table.insert(out, ("\t{ return default_%s(%s); }"):format(cbName, table.concat(argConcat)))
-	end
+	-- handle load specially, because i want to convert it from a lua table to a haxe array.
+	table.insert(out, "\tprivate function load(args:Array<String>, unfilteredArgs:Array<String>) {}")
 
+	-- creation of constructor/initialization
 	table.insert(out, [[
 	
 	public function new() {
@@ -512,26 +500,14 @@ function emitAppClass()
 		instance = this;
 		
 		Love.load = (argsTable:lua.Table<Dynamic, Dynamic>, unfilteredArgs:lua.Table<Dynamic, Dynamic>) -> {
-			var args:Array<String> = [];
-			var i = 1;
-			while (argsTable[i] != null) {
-				args.push(argsTable[i]);
-				i++;
-			}
-			
-			load(args);
+			load(lua.Table.toArray(cast argsTable), lua.Table.toArray(cast unfilteredArgs));
 		}
+
+		// macro will fill out callback assignments here
+	}
 ]])
 
-	for _, cbName in pairs(callbacksWithDefaults) do
-		table.insert(out, ("\t\tLove.%s = %s;"):format(cbName, cbName))
-	end
-	
-	for _, name in pairs(cbNames) do
-		table.insert(out, ("\t\tLove.%s = %s;"):format(name, name))
-	end
-
-	table.insert(out, "\t}\n}")
+	table.insert(out, "}")
 	
 	table.insert(out, 2, resolveImports(types, moduleName))
 
@@ -551,6 +527,73 @@ end
 
 mergeTables(files, emitModule(api, "love"))
 mergeTables(files, emitAppClass())
+
+files["love/ApplicationMacros.hx"] = [[
+package love;
+
+import haxe.macro.Expr;
+import haxe.macro.Type.ClassField;
+import haxe.macro.Type.ClassType;
+import haxe.macro.Context;
+import haxe.macro.Expr.Field;
+
+/**
+ * This is a macro that makes it so LOVE callbacks are only set on love.Application subclasses
+ * that provide an implementation.
+ */
+class ApplicationMacros {
+    public static macro function assignCallbacks(): Array<Field> {
+        var buildFields = Context.getBuildFields();
+        if (Context.getLocalModule() == "love.Application") return buildFields;
+
+        var baseClass = switch (Context.getType("love.Application")) {
+            case TInst(t, params):
+                t.get();
+
+            default:
+                Context.fatalError("Could not resolve love.Application base class", Context.currentPos());
+        };
+
+        // collect list of callbacks used by the application
+        var baseFields = baseClass.fields.get();
+        var neededCallbacks:Array<String> = [];
+
+        for (bfield in buildFields) {
+            for (field in baseFields) {
+                if (field.name == bfield.name && field.meta.has(":lovecallback")) {
+                    neededCallbacks.push(field.name);
+                }
+            }
+        }
+
+        // use this list to set love callbacks as needed in
+        // the constructor
+        for (bfield in buildFields) {
+            if (bfield.name == "new") {
+                switch (bfield.kind) {
+                    case FFun(f):
+                        switch (f.expr.expr) {
+                            case EBlock(exprs):
+                                for (cb in neededCallbacks) {
+                                    exprs.push({
+                                        expr: EBinop(Binop.OpAssign, macro $p{["love", "Love", cb]}, macro $p{[cb]}),
+                                        pos: Context.currentPos()
+                                    });
+                                }
+
+                            default:
+                                Context.fatalError("function love.Application.new was not a block expression?", Context.currentPos());
+                        }
+                    
+                    default:
+                        Context.fatalError("field love.Application.new was not a function?", Context.currentPos());
+                }
+            }
+        }
+
+        return buildFields;
+    }
+}]]
 
 local dirSep = package.config:sub(1, 1)
 for i, v in pairs(files) do
