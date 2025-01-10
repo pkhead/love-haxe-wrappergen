@@ -207,11 +207,11 @@ do
 
 		for _, v in ipairs(numbers) do
 			if v == firstCh then
-				return "_" .. s
+				s = "_" .. s
 			end
 		end
 
-		return s
+		return string.gsub(s, "[^A-Za-z0-9_]", "_")
 	end
 end
 
@@ -233,6 +233,13 @@ function dirname(path)
 end
 
 function emitMultiReturnType(name, returns, types)
+	local overrideFile = io.open(("overrides/%s.hx"):format(name), "r")
+	if overrideFile then
+		local contents = overrideFile:read("*a")
+		overrideFile:close()
+		return "\n" .. contents
+	end
+
 	local parts = {}
 	parts[1] = ("\n@:multiReturn\nextern class %s\n{\n"):format(name)
 	for i, v in ipairs(returns) do
@@ -259,7 +266,7 @@ function emitOverload(typeName, name, o, types, multirets)
 			-- split variable name per comma and submit each value
 			local components = {}
 			for argName in string.gmatch(v.name, "([^, ]+)") do
-				local arg = (v.default and "?" or "") .. argName .. ":" .. v.type
+				local arg = (v.default and "?" or "") .. correctIdentifier(argName) .. ":" .. v.type
 				table.insert(args, arg)
 			end
 		end
@@ -611,6 +618,60 @@ class ApplicationMacros {
 
         return buildFields;
     }
+}]]
+
+files["love/FilesystemRead.hx"] = [[package love;
+
+import love.data.ContainerType;
+import love.data.ByteData;
+
+enum FilesystemStringReadResult {
+	Success(contents:String, size:Int);
+	Error(message:String);
+}
+
+enum FilesystemByteDataReadResult {
+	Success(contents:ByteData, size:Int);
+	Error(message:String);
+}
+
+/**
+ * Interface for type-safe access to the love.filesystem.read function.
+ */
+class FilesystemRead {
+    /**
+     * Read the contents of a file into a string.
+     * @param name The name (and path) of the file
+     * @param size (all) How many bytes to read
+     */
+    public static function readToString(name:String, ?size:Float) {
+		var res = Filesystem.read(ContainerType.String, name, size);
+		var contentsOrNil = res.contentsOrNil;
+		var sizeOrError = res.sizeOrError;
+
+		if (untyped __lua__("{0} == nil", contentsOrNil)) {
+			return FilesystemStringReadResult.Error(cast sizeOrError);
+		} else {
+			return FilesystemStringReadResult.Success(cast contentsOrNil, cast sizeOrError);
+		}
+	}
+
+    /**
+     * Read the contents of a file into a ByteData object.
+     * @param name The name (and path) of the file
+     * @param size (all) How many bytes to read
+     */
+	public static function readToByteData(name:String, ?size:Float) {
+		var res = Filesystem.read(ContainerType.Data, name, size);
+		var contentsOrNil = res.contentsOrNil;
+		var sizeOrError = res.sizeOrError;
+
+		if (untyped __lua__("{0} == nil", contentsOrNil)) {
+			return FilesystemByteDataReadResult.Error(cast sizeOrError);
+		} else {
+			return FilesystemByteDataReadResult.Success(cast contentsOrNil, cast sizeOrError);
+		}
+	}
 }]]
 
 local dirSep = package.config:sub(1, 1)
