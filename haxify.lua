@@ -232,6 +232,52 @@ function dirname(path)
 	return path:match("^(.-)/?[^/]+$")
 end
 
+function writeComment(desc, prefix, funcData)
+	prefix = prefix or ""
+	local out = {prefix, "/**\n"}
+
+	local i = 1
+	while true do
+		local next = string.find(desc, "\n", i)
+		table.insert(out, prefix)
+		table.insert(out, " * ")
+
+		if next == nil then
+			table.insert(out, string.sub(desc, i))
+		else
+			table.insert(out, string.sub(desc, i, next - 1))
+		end
+
+		table.insert(out, "\n")
+
+		if next == nil then break end
+		i = next + 1
+	end
+
+	if funcData ~= nil then
+		for _, v in pairs(funcData.arguments or {}) do
+			table.insert(out, prefix)
+			table.insert(out, " * @param ")
+			table.insert(out, v.name)
+			table.insert(out, " ")
+			table.insert(out, v.description)
+			table.insert(out, "\n")
+		end
+
+		if funcData.returns ~= nil and #funcData.returns == 1 then
+			table.insert(out, prefix)
+			table.insert(out, " * @returns ")
+			table.insert(out, funcData.returns[1].description)
+			table.insert(out, "\n")
+		end
+	end
+
+	table.insert(out, prefix)
+	table.insert(out, " */")
+
+	return table.concat(out)
+end
+
 function emitMultiReturnType(name, returns, types)
 	local overrideFile = io.open(("overrides/%s.hx"):format(name), "r")
 	if overrideFile then
@@ -313,6 +359,10 @@ function rawEmitFunction(typeName, f, types, static, multirets)
 
 	local out = {""}
 
+	if f.description then
+		table.insert(out, writeComment(f.description, "\t", f.variants[1]))
+	end
+
 	local sigs = {}
 	for i, v in ipairs(f.variants) do
 		table.insert(sigs, emitOverload(typeName, f.name, v, types, multirets))
@@ -342,6 +392,9 @@ function emitCallbackFunctionHeader(typeName, f, types, static, multirets)
 		table.insert(out, ("\t@:overload(function %s {})"):format(v))
 	end
 
+	if f.description then
+		table.insert(out, writeComment(f.description, "\t", f.variants[1]))
+	end
 	table.insert(out, ("\tprivate%s function %s%s"):format(static and " static" or "", f.name, main))
 	return table.concat(out, "\n")
 end
@@ -364,6 +417,10 @@ function emitEnum(e, packageName)
 
 	local out = {}
 	table.insert(out, ("package %s;"):format(packageName))
+
+	if e.description then
+		table.insert(out, writeComment(e.description))
+	end
 	table.insert(out, ("enum abstract %s (String)\n{"):format(e.name))
 
 	for i, v in ipairs(e.constants) do
@@ -396,6 +453,10 @@ function emitType(t, packageName)
 	emitHeader(out, packageName)
 
 	local superType = t.supertypes and mostSpecificSupertype(t.supertypes) or "UserData"
+
+	if t.description then
+		table.insert(out, writeComment(t.description))
+	end
 	table.insert(out, ("extern class %s extends %s\n{"):format(t.name, superType))
 
 	for i, v in ipairs(t.functions or {}) do
@@ -420,6 +481,11 @@ function emitModule(m, luaName)
 	local moduleName = luaName or "love." .. m.name
 	local prefix = moduleName:gsub("%.", "/") .. "/"
 	emitHeader(out, "love")
+
+	if m.description then
+		table.insert(out, writeComment(m.description))
+	end
+
 	table.insert(out, ("@:native(\"%s\")"):format(moduleName))
 	local className = capitalize(luaName or m.name)
 	table.insert(out, ("extern class %s"):format(className))
