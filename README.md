@@ -20,8 +20,8 @@ Run, in a terminal:
 ```bash
 haxelib git love2d https://github.com/pkhead/love-haxe-wrappergen
 
-# PowerShell: cd $env:HAXEPATH/lib/hxlove2d/git
-# Windows Command Prompt: cd %HAXEPATH%/lib/hxlove2d/git
+# PowerShell: cd $env:HAXEPATH/lib/love2d/git
+# Windows Command Prompt: cd %HAXEPATH%/lib/love2d/git
 # Bash:
 cd $HAXEPATH/lib/love2d/git
 

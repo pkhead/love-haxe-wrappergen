@@ -742,6 +742,7 @@ class FilesystemRead {
 
 local dirSep = package.config:sub(1, 1)
 for i, v in pairs(files) do
+	i = "gen/" .. i
 	if dirSep == "/" then -- unix
 		os.execute("mkdir -p " .. dirname(i))
 	else -- windows

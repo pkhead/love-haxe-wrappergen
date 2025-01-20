@@ -4,9 +4,9 @@
     "license": "MIT",
     "tags": [ "wrapper", "lua", "love2d", "framework" ],
     "description": "Wrapper for the Love2D game framework.",
-    "version": "1.0.0",
-    "classPath": "love/",
-    "releasenote": "Release 1.0.0",
-    "contributors": [ "bartbes", "pkhead" ]
+    "version": "1.0.1",
+    "classPath": "gen/",
+    "releasenote": "Release 1.0.1 for Love2D 11.5. Just added proper Haxelib package data.",
+    "contributors": [ "pkhead" ]
   }
   
