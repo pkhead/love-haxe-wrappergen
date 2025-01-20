@@ -18,12 +18,12 @@ Fair warning, the code is awful, and full of hacks. Look, it was easy.
 ### Using `haxelib git`
 Run, in a terminal:
 ```bash
-haxelib git love2d https://github.com/pkhead/love-haxe-wrappergen
+haxelib git love https://github.com/pkhead/love-haxe-wrappergen
 
-# PowerShell: cd $env:HAXEPATH/lib/love2d/git
-# Windows Command Prompt: cd %HAXEPATH%/lib/love2d/git
+# PowerShell: cd $env:HAXEPATH/lib/love/git
+# Windows Command Prompt: cd %HAXEPATH%/lib/love/git
 # Bash:
-cd $HAXEPATH/lib/love2d/git
+cd $HAXEPATH/lib/love/git
 
 git submodule update --init love-api
 lua haxify.lua
@@ -36,13 +36,13 @@ git clone https://github.com/pkhead/love-haxe-wrappergen
 cd love-haxe-wrappergen
 git submodule update --init love-api
 lua haxify.lua
-haxelib dev love2d .
+haxelib dev love .
 ```
 
 ## Examples:
 ### build.hxml
 ```hxml
--lib love2d
+-lib love
 -cp src
 -D lua-vanilla
 --lua out/main.lua
