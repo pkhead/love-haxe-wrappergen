@@ -40,6 +40,17 @@ haxelib dev love2d .
 ```
 
 ## Examples:
+### build.hxml
+```hxml
+-lib love2d
+-cp src
+-D lua-vanilla
+--lua out/main.lua
+
+--main MyGame
+```
+
+### Code samples
 ```haxe
 class TextDrawing extends love.Application {
     override function draw() {
