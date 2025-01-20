@@ -1,7 +1,9 @@
 This project uses the awesome [love-api][] project, which provides a lua tables representation of the love documention, to generate Haxe wrappers.
-To use this project, make sure to checkout the submodule (`git submodule update --init love-api`).
+To use this project, make sure to checkout the submodule (`git submodule update --init love-api`). Then, run `lua haxify.lua` in a terminal to generate the wrappers.
 
 Fair warning, the code is awful, and full of hacks. Look, it was easy.
+
+(This is also only tested to work on LOVE 11.5.)
 
 [love-api]: https://github.com/love2d-community/love-api
 
@@ -10,6 +12,32 @@ Fair warning, the code is awful, and full of hacks. Look, it was easy.
     - They are located directly under the `love` package.
     - Their names are no longer suffixed with "Module".
 - love.Application class, which allows classes that extend it to set LOVE callbacks by overriding functions from the base class.
+- `love.FilesystemRead` class for type-safe file reading.
+
+## Haxelib usage
+### Using `haxelib git`
+Run, in a terminal:
+```bash
+haxelib git love2d https://github.com/pkhead/love-haxe-wrappergen
+
+# PowerShell: cd $env:HAXEPATH/lib/hxlove2d/git
+# Windows Command Prompt: cd %HAXEPATH%/lib/hxlove2d/git
+# Bash:
+cd $HAXEPATH/lib/love2d/git
+
+git submodule update --init love-api
+lua haxify.lua
+```
+
+### Using `haxelib dev`
+Run, in a terminal:
+```bash
+git clone https://github.com/pkhead/love-haxe-wrappergen
+cd love-haxe-wrappergen
+git submodule update --init love-api
+lua haxify.lua
+haxelib dev love2d .
+```
 
 ## Examples:
 ```haxe
