@@ -1,5 +1,5 @@
 This project uses the awesome [love-api][] project, which provides a lua tables representation of the love documention, to generate Haxe wrappers.
-To use this project, make sure to checkout the submodule (`git submodule update --init love-api`). Then, run `lua haxify.lua` in a terminal to generate the wrappers.
+To use this project, make sure to checkout the submodule (`git submodule update --init love-api`). Then, run `lua haxify.lua` in a terminal to generate the wrappers. The Haxelib distribution already has the files generated.
 
 Fair warning, the code is awful, and full of hacks. Look, it was easy.
 
@@ -15,6 +15,11 @@ Fair warning, the code is awful, and full of hacks. Look, it was easy.
 - `love.FilesystemRead` class for type-safe file reading.
 
 ## Haxelib usage
+### Installing prebuilt externs
+```bash
+haxelib install love
+```
+
 ### Using `haxelib git`
 Run, in a terminal:
 ```bash
