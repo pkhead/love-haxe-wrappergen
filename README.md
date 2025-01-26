@@ -107,6 +107,7 @@ class SoundPlaying extends love.Application {
     - Their names are no longer suffixed with "Module".
 - love.Application class, which allows classes that extend it to set LOVE callbacks by overriding functions from the base class.
 - `love.FilesystemRead` class for type-safe file reading.
+- Emitted documentation for functions and classes.
 
 ## Source Maps with Local Lua Debugger
 **Note: As of 01/26/2025 the current stable version of Haxe (4.3.6) cannot generate Lua source maps. This section is for once that feature is released or if you are using a nightly/development version of Haxe.**
