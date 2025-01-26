@@ -1,0 +1,7 @@
+-lib love
+-cp src
+--debug
+--macro 'haxe.macro.Compiler.include("love")'
+
+-D lua-vanilla
+--lua out/main.lua
