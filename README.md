@@ -110,7 +110,7 @@ class SoundPlaying extends love.Application {
 - Emitted documentation for functions and classes.
 
 ## Source Maps with Local Lua Debugger
-**Note: As of 01/26/2025 the current stable version of Haxe (4.3.6) cannot generate Lua source maps. This section is for once that feature is released or if you are using a nightly/development version of Haxe.**
+**Note: This only applies to users with Haxe 5+ or a nightly version, since as of 01/26/2025 the current stable version of Haxe (4.3.6) cannot generate Lua source maps.**
 
 This section is for if want to use the Visual Studio Code extension Local Lua Debugger by Tom Blind to debug your Love2D project. This debugger has the option to use source maps following the JavaScript format. Setup is required in order for it to work properly.
 
@@ -154,7 +154,7 @@ You need to add the following entry to the `.vscode/launch.json` file (assumes t
 }
 ```
 
-### 3. Hook into lldebugger on application startup
+### 3. Launch lldebugger hook on application startup
 At the very top of your application's main function (chosen because it is the earliest point at which code can execute), add the following code:
 ```haxe
 untyped __lua__("
