@@ -480,7 +480,7 @@ function emitModule(m, luaName)
 
 	local moduleName = luaName or "love." .. m.name
 	local prefix = moduleName:gsub("%.", "/") .. "/"
-	emitHeader(out, "love")
+	emitHeader(out, moduleName)
 
 	if m.description then
 		table.insert(out, writeComment(m.description))
@@ -488,6 +488,10 @@ function emitModule(m, luaName)
 
 	table.insert(out, ("@:native(\"%s\")"):format(moduleName))
 	local className = capitalize(luaName or m.name)
+	if className ~= "Love" then
+		className = className .. "Module"
+	end
+
 	table.insert(out, ("extern class %s"):format(className))
 	table.insert(out, "{")
 
@@ -510,12 +514,20 @@ function emitModule(m, luaName)
 	end
 
 	table.insert(out, 2, resolveImports(types, moduleName))
-	table.insert(out, 2, ("import %s.*;"):format(moduleName))
+	--table.insert(out, 2, ("import %s.*;"):format(moduleName))
 
 	for i, v in pairs(multirets) do
 		table.insert(out, v)
 	end
-	files["love/" .. className .. ".hx"] = table.concat(out, "\n")
+
+	local outFolder
+	if luaName == "love" then
+		outFolder = "love/"
+	else
+		outFolder = "love/" .. (luaName or m.name)
+	end
+
+	files[outFolder .. "/" .. className .. ".hx"] = table.concat(out, "\n")
 	return files
 end
 
@@ -686,7 +698,7 @@ class ApplicationMacros {
     }
 }]]
 
-files["love/FilesystemRead.hx"] = [[package love;
+files["love/filesystem/FilesystemRead.hx"] = [[package love.filesystem;
 
 import love.data.ContainerType;
 import love.data.ByteData;
@@ -711,7 +723,7 @@ class FilesystemRead {
      * @param size (all) How many bytes to read
      */
     public static function readToString(name:String, ?size:Float) {
-		var res = Filesystem.read(ContainerType.String, name, size);
+		var res = FilesystemModule.read(ContainerType.String, name, size);
 		var contentsOrNil = res.contentsOrNil;
 		var sizeOrError = res.sizeOrError;
 
@@ -728,7 +740,7 @@ class FilesystemRead {
      * @param size (all) How many bytes to read
      */
 	public static function readToByteData(name:String, ?size:Float) {
-		var res = Filesystem.read(ContainerType.Data, name, size);
+		var res = FilesystemModule.read(ContainerType.Data, name, size);
 		var contentsOrNil = res.contentsOrNil;
 		var sizeOrError = res.sizeOrError;
 

@@ -1,5 +1,5 @@
 @:multiReturn
-extern class FilesystemReadResult
+extern class FilesystemModuleReadResult
 {
 	var contentsOrNil : Dynamic;
 	var sizeOrError : Dynamic;
