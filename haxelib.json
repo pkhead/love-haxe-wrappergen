@@ -3,10 +3,10 @@
     "url" : "https://github.com/pkhead/love-haxe-wrappergen",
     "license": "BSD",
     "tags": [ "extern", "lua", "love", "love2d", "framework" ],
-    "description": "Externs and helpers for the Love game framework.",
-    "version": "1.0.1",
+    "description": "Externs and integrations for the LÖVE game framework.",
+    "version": "2.0.0",
     "classPath": "gen/",
-    "releasenote": "Release 1.0.1 for Love 11.5. Just added proper Haxelib package data.",
+    "releasenote": "LÖVE 11.5: Fixed KeyConstant enum. Changed module classes to have their names suffixed with Module and located within their respective package.",
     "contributors": [ "pkhead" ]
   }
   

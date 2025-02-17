@@ -1,7 +1,7 @@
-# LOVE for Haxe
-This is an updated fork of the original [love-haxe-wrappergen][] by bartbes. It uses the awesome [love-api][] project, which provides a Lua tables representation of the LOVE documentation, to generate Haxe wrappers.
+# LÖVE for Haxe
+This is an updated fork of the original [love-haxe-wrappergen][] by bartbes. It uses the awesome [love-api][] project, which provides a Lua tables representation of the LÖVE documentation, to generate Haxe wrappers.
 
-This project is currently only tested to work on LOVE 11.5.
+This project is currently only tested to work on LÖVE 11.5.
 
 [love-api]: https://github.com/love2d-community/love-api
 [love-haxe-wrappergen]: https://github.com/bartbes/love-haxe-wrappergen
@@ -59,9 +59,11 @@ haxelib dev love .
 
 ### Code samples
 ```haxe
+import love.graphics.GraphicsModule as LoveGraphics;
+
 class TextDrawing extends love.Application {
     override function draw() {
-        love.Graphics.print("Hello, world!", 400, 300);
+        LoveGraphics.print("Hello, world!", 400, 300);
     }
 
     public static function main() {
@@ -71,15 +73,17 @@ class TextDrawing extends love.Application {
 ```
 
 ```haxe
+import love.graphics.GraphicsModule as LoveGraphics;
+
 class ImageDrawing extends love.Application {
     var whale:love.graphics.Texture;
 
     override function load(args:Array<String>, unfilteredArgs:Array<String>) {
-        whale = love.Graphics.newImage("whale.png");
+        whale = LoveGraphics.newImage("whale.png");
     }
 
     override function draw() {
-        love.Graphics.draw(whale, 300, 200);
+        LoveGraphics.draw(whale, 300, 200);
     }
 
     public static function main() {
@@ -89,10 +93,12 @@ class ImageDrawing extends love.Application {
 ```
 
 ```haxe
+import love.audio.AudioModule as LoveAudio;
+
 class SoundPlaying extends love.Application {
     override function load(args:Array<String>, unfilteredArgs:Array<String>) {
-        var sound = love.Audio.newSource("music.ogg", Stream);
-        love.Audio.play(sound); // or sound.play();
+        var sound = LoveAudio.newSource("music.ogg", Stream);
+        LoveAudio.play(sound); // or sound.play();
     }
 
     public static function main() {
@@ -102,11 +108,8 @@ class SoundPlaying extends love.Application {
 ```
 
 ## Changes from upstream:
-- LOVE modules are more convenient to use:
-    - They are located directly under the `love` package.
-    - Their names are no longer suffixed with "Module".
-- love.Application class, which allows classes that extend it to set LOVE callbacks by overriding functions from the base class.
-- `love.FilesystemRead` class for type-safe file reading.
+- love.Application class, which allows classes that extend it to set LÖVE callbacks by overriding functions from the base class.
+- `love.filesystem.FilesystemRead` class for type-safe file reading.
 - Emitted documentation for functions and classes.
 
 ## Source Maps with Local Lua Debugger
